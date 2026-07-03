@@ -1,0 +1,58 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100dvh;
+  width: 100vw;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #0b1b2b;
+  transition: background-color .4s ease;
+  font-family: system-ui, sans-serif;
+}
+
+body.cold   { background-color: #1f78d1; }
+body.medium { background-color: #f2b705; }
+body.hot    { background-color: #e6392c; }
+
+#symbol {
+  position: relative;
+  display: flex;
+}
+
+#card {
+  display: block;
+  max-height: 94dvh;
+  max-width: 94vw;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 30px rgba(0, 0, 0, .35));
+  -webkit-touch-callout: none;   /* no long-press "Save Image" popup on iOS */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.badge {
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  transform: translate(-50%, 20px);
+  background: rgba(0, 0, 0, .6);
+  color: #fff;
+  padding: .5em 1em;
+  border-radius: 999px;
+  font-size: clamp(1rem, 2.2vh, 1.6rem);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+}
+
+.badge.visible {
+  opacity: 1;
+}

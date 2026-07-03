@@ -1,0 +1,21 @@
+services:
+  webapp:
+    build: .
+    # Match the host user that owns ~/.config/myuplink (set in .env)
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    environment:
+      - MYUPLINK_CONFIG_DIR=/config
+    volumes:
+      - ~/.config/myuplink:/config
+    ports:
+      - "127.0.0.1:5000:5000"
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    restart: unless-stopped
+    depends_on:
+      - webapp
