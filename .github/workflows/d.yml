@@ -1,8 +1,0 @@
-name: d-emdash-comment
-on: push
-jobs:
-  d:
-    runs-on: ubuntu-latest
-    steps:
-      # Building is NOT deploying — the box only ever runs what `promote` tags as
-      - run: echo ok
