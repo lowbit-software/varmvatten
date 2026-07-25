@@ -40,10 +40,14 @@ varmvatten/
 ├── nibe_client.py       # myUplink OAuth token handling + hot-water lookup
 ├── requirements.txt
 ├── Dockerfile
-├── docker-compose.yml   # webapp + cloudflared services
+├── docker-compose.yml   # webapp + cloudflared services (pulls the promoted image)
+├── docker-compose.dev.yml # overlay: build from source instead of pulling
 ├── .env.example         # template for .env (git-ignored, chmod 600)
+├── DEPLOY.md            # build/promote pipeline and the server's deploy agent
+├── .github/workflows/   # build.yml (build + smoke test), promote.yml (retag :stable)
 ├── scripts/
-│   └── nibe_login.py    # one-time interactive myUplink OAuth login
+│   ├── nibe_login.py    # one-time interactive myUplink OAuth login
+│   └── deploy.sh        # server-side pull deploy, health-gated with rollback
 ├── templates/
 │   └── index.html
 └── static/
@@ -133,9 +137,14 @@ Done from the dashboard (no `cloudflared login` needed):
 
 ## Run
 
+Locally, building from source:
+
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 ```
+
+On the server, `docker compose up -d` instead pulls the image promoted to
+`ghcr.io/lowbit-software/varmvatten:stable` — see [DEPLOY.md](DEPLOY.md).
 
 - `webapp` is published only on `127.0.0.1:5000` (loopback) for local
   testing; the public entry point is the tunnel.

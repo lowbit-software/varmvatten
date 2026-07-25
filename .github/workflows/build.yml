@@ -1,0 +1,71 @@
+name: build
+
+# Builds every push to main and every PR. Pushes to GHCR only for main.
+# Building is NOT deploying — the box only ever runs what `promote` tags as
+# `:stable`. See DEPLOY.md.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image for testing
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: varmvatten:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test
+        run: |
+          # Must import cleanly and register its routes with no NIBE creds present.
+          docker run --rm --entrypoint python varmvatten:ci -c "
+          import app
+          routes = {r.rule for r in app.app.url_map.iter_rules()}
+          assert '/api/temperature' in routes, routes
+          print('ok:', sorted(routes))
+          "
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image tags
+        id: meta
+        if: github.event_name != 'pull_request'
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha,format=short
+            type=raw,value=main,enable={{is_default_branch}}
+
+      - name: Push
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Served entirely from the cache populated above — no rebuild.
+          cache-from: type=gha
