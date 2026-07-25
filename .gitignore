@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Deploy state — the digest this specific host runs (see scripts/deploy.sh)
+.deploy.*
+
 # Python
 __pycache__/
 *.py[cod]

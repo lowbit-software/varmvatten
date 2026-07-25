@@ -1,0 +1,10 @@
+# Local development: build from source instead of pulling the promoted image.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#
+# Overrides the GHCR image so a local build can never be confused with, or
+# pushed over, a promoted one.
+services:
+  webapp:
+    build: .
+    image: varmvatten:dev
