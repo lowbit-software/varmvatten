@@ -1,0 +1,13 @@
+[Unit]
+Description=Deploy the promoted varmvatten image if it changed
+Documentation=file://%h/varmvatten/DEPLOY.md
+
+[Service]
+Type=oneshot
+# %h is the home of the user running this. These are *user* units on purpose:
+# docker-compose.yml mounts ~/.config/myuplink, so running as root would
+# silently mount /root/.config/myuplink and the app would lose its tokens.
+ExecStart=%h/varmvatten/scripts/deploy.sh
+WorkingDirectory=%h/varmvatten
+# A slow pull plus health-check-and-rollback can legitimately take a few minutes.
+TimeoutStartSec=600

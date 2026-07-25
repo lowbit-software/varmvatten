@@ -45,6 +45,7 @@ varmvatten/
 ├── .env.example         # template for .env (git-ignored, chmod 600)
 ├── DEPLOY.md            # build/promote pipeline and the server's deploy agent
 ├── .github/workflows/   # build.yml (build + smoke test), promote.yml (retag :stable)
+├── deploy/systemd/      # user units that poll for a promoted image every 5 min
 ├── scripts/
 │   ├── nibe_login.py    # one-time interactive myUplink OAuth login
 │   └── deploy.sh        # server-side pull deploy, health-gated with rollback

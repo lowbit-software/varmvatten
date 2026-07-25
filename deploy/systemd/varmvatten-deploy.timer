@@ -1,0 +1,12 @@
+[Unit]
+Description=Poll GHCR every 5 minutes for a newly promoted varmvatten image
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30
+# No Persistent= here: it only applies to OnCalendar= timers and would be inert.
+# A reboot is covered by OnBootSec above, which re-arms 2 min after boot.
+
+[Install]
+WantedBy=timers.target

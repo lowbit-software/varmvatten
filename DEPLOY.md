@@ -57,17 +57,29 @@ cd ~/varmvatten && ./scripts/deploy.sh
 
 That first run replaces the locally-built container with the GHCR one.
 
-**4. Enable the timer.**
+**4. Install and enable the timer.**
+
+The units live in `deploy/systemd/` and use the `%h` specifier, so they work for
+any user as long as the repo is cloned to `~/varmvatten`.
 
 ```bash
-sudo loginctl enable-linger jonas          # user timers run without a login session
+install -m 644 deploy/systemd/varmvatten-deploy.{service,timer} ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now varmvatten-deploy.timer
+sudo loginctl enable-linger "$USER"        # user timers run without a login session
 systemctl --user list-timers varmvatten-deploy.timer
 ```
 
 `enable-linger` is required — without it the timer stops the moment you log out
 of SSH.
+
+They are deliberately **user** units, not system units: `docker-compose.yml`
+mounts `~/.config/myuplink`, and under a system unit running as root that `~`
+would resolve to `/root/.config/myuplink`, so the app would come up without its
+myUplink tokens.
+
+After editing anything in `deploy/systemd/`, re-run the `install` and
+`daemon-reload` lines — a `git pull` alone does not update the live units.
 
 **5. Optional: require an approval click.**
 
