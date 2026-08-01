@@ -42,13 +42,53 @@ jobs:
 
       - name: Resolve source tag
         id: src
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+
           if [ "${{ github.event_name }}" = "push" ]; then
             # Tag push: promote the image built for the tagged commit.
             echo "tag=sha-$(echo '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${{ inputs.source }}" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+
+          src="${{ inputs.source }}"
+          case "$src" in
+            sha-*)
+              # Already immutable: a sha- tag is written once by one build and
+              # never moves.
+              echo "tag=$src" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              # A branch name is a MOVING target. `:main` only advances when a
+              # build finishes PUSHING, so promoting it while a build is in
+              # flight silently ships the previous commit — green build, green
+              # promote, green deploy, wrong code. That is not hypothetical: it
+              # bit the sibling gmud deployment on 2026-08-01, where a promote
+              # finished 42 seconds before the build it was meant to ship.
+              #
+              # So resolve the branch to its head commit and promote that
+              # commit's immutable tag instead. If the image isn't there yet,
+              # fail loudly rather than shipping whatever `:main` still points at.
+              # Slashes in $src need no encoding: this endpoint matches the ref
+              # greedily, so `fix/promote-race` resolves as-is (%2F works too).
+              if ! head="$(gh api "repos/${{ github.repository }}/commits/$src" --jq .sha 2>/dev/null)"; then
+                echo "::error::could not resolve '$src' to a commit in this repo."
+                echo "::error::Expected a branch name (main), a sha-abc1234 image tag, or a commit sha."
+                exit 1
+              fi
+              short="$(echo "$head" | cut -c1-7)"
+              echo "note: $src is at $short"
+              if ! docker buildx imagetools inspect "$IMAGE:sha-$short" >/dev/null 2>&1; then
+                echo "::error::$src is at $short, but $IMAGE:sha-$short does not exist yet."
+                echo "::error::Its build is probably still running — wait for it to finish, then re-run."
+                echo "::error::Promoting '$src' directly would have shipped the PREVIOUS commit instead."
+                exit 1
+              fi
+              echo "tag=sha-$short" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
 
       - name: Retag as stable
         env:
