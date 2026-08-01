@@ -90,7 +90,7 @@ yourself. Every promote then waits for you to press Approve in the Actions UI.
 
 | Goal | Action |
 |---|---|
-| Ship what is on `main` | Actions ▸ promote ▸ Run workflow (source: `main`) |
+| Ship what is on `main` | Actions ▸ promote ▸ Run workflow (source: `main`) — **after** `build` is green; it fails rather than shipping the previous commit |
 | Ship a version tag | `git tag v1.2.3 && git push --tags` |
 | Roll back | Actions ▸ promote ▸ Run workflow (source: `sha-abc1234` of a known-good build) |
 | Deploy right now, don't wait 5 min | `systemctl --user start varmvatten-deploy.service` |
