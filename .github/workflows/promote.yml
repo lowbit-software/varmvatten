@@ -71,7 +71,13 @@ jobs:
               # So resolve the branch to its head commit and promote that
               # commit's immutable tag instead. If the image isn't there yet,
               # fail loudly rather than shipping whatever `:main` still points at.
-              head="$(gh api "repos/${{ github.repository }}/commits/$src" --jq .sha)"
+              # Slashes in $src need no encoding: this endpoint matches the ref
+              # greedily, so `fix/promote-race` resolves as-is (%2F works too).
+              if ! head="$(gh api "repos/${{ github.repository }}/commits/$src" --jq .sha 2>/dev/null)"; then
+                echo "::error::could not resolve '"'"'$src'"'"' to a commit in this repo."
+                echo "::error::Expected a branch name (main), a sha-abc1234 image tag, or a commit sha."
+                exit 1
+              fi
               short="$(echo "$head" | cut -c1-7)"
               echo "note: $src is at $short"
               if ! docker buildx imagetools inspect "$IMAGE:sha-$short" >/dev/null 2>&1; then
