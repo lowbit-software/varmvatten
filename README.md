@@ -36,7 +36,8 @@ threshold.
 
 ```
 varmvatten/
-├── app.py               # Flask app: background poller + /api/temperature + page
+├── app.py               # Flask app: poller + watchdog + /api/temperature + /healthz + page
+├── tests/               # `python tests/poller.py`, `node tests/staleness_ui.mjs` — both in CI
 ├── nibe_client.py       # myUplink OAuth token handling + hot-water lookup
 ├── requirements.txt
 ├── Dockerfile
@@ -157,6 +158,7 @@ On the server, `docker compose up -d` instead pulls the image promoted to
 docker compose logs -f webapp          # expect "hot water temp: NN.N°C" within ~60 s
 curl http://127.0.0.1:5000/api/temperature
 curl https://varmvatten.<domain>/api/temperature
+curl http://127.0.0.1:5000/healthz
 ```
 
 ## Endpoints
@@ -164,7 +166,8 @@ curl https://varmvatten.<domain>/api/temperature
 | Route               | Description                                        |
 | ------------------- | -------------------------------------------------- |
 | `GET /`             | The full-screen symbol page                        |
-| `GET /api/temperature` | JSON `{ "temp", "unit", "updated_at" }`         |
+| `GET /api/temperature` | JSON `{ "temp", "unit", "updated_at", "age_seconds", "stale" }` |
+| `GET /healthz`         | Is the *app* working. 503 only when the poll thread has stopped trying |
 
 ## Notes
 

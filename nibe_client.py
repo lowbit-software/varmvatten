@@ -11,6 +11,7 @@ MYUPLINK_CONFIG_DIR environment variable (the Docker container mounts it at
 """
 import json
 import os
+import socket
 import time
 import urllib.request
 import urllib.parse
@@ -18,6 +19,21 @@ import urllib.error
 
 API_BASE = "https://api.myuplink.com"
 HOT_WATER_PARAMETER_ID = 50325  # "Hot water temp." - confirmed via --list
+
+# Seconds to wait on any single myUplink request.
+#
+# Load-bearing, not a nicety. urlopen's default timeout is None, which means
+# block forever, and on 2026-08-22 that is exactly what happened: the API's
+# connection went quiet without a FIN or an RST - routine for a connection
+# through a CDN edge - and the read never returned and never raised. The poll
+# thread sat in that one call for 31 hours holding an ESTABLISHED socket, so
+# the loop never came round again and the page served a day-old reading while
+# reporting itself perfectly healthy.
+#
+# A blocked read cannot be caught, so it has to be prevented. 20s is generous
+# for an API that normally answers in well under one, and a poll makes at most
+# three requests, so a worst case still finishes inside the 60s poll interval.
+REQUEST_TIMEOUT_SECONDS = 20
 
 CONFIG_DIR = os.environ.get("MYUPLINK_CONFIG_DIR") or os.path.expanduser("~/.config/myuplink")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
@@ -48,7 +64,7 @@ def http_request(url, data=None, headers=None, method=None):
     body = urllib.parse.urlencode(data).encode() if data else None
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SECONDS) as resp:
             return resp.status, json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
         raw = e.read().decode()
@@ -56,6 +72,13 @@ def http_request(url, data=None, headers=None, method=None):
             return e.code, json.loads(raw or "{}")
         except json.JSONDecodeError:
             return e.code, {"raw_response": raw}
+    except (socket.timeout, TimeoutError) as e:
+        # Deliberately raised rather than folded into a status code: a timeout
+        # is not an answer from the API, and returning something like (0, {})
+        # would let callers treat "no reply" as "replied with nothing".
+        raise RuntimeError(
+            f"myUplink did not answer within {REQUEST_TIMEOUT_SECONDS}s: {url}"
+        ) from e
 
 
 def refresh(client_id, client_secret, tokens):

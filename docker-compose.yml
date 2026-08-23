@@ -14,8 +14,13 @@ services:
       - "127.0.0.1:5000:5000"
     restart: unless-stopped
     healthcheck:
+      # /healthz, not /api/temperature. The latter answered 200 for all 31 hours
+      # of the 2026-08-22 outage, because Flask's main thread was fine — it was
+      # the poll thread that was wedged, and nothing asked about it. /healthz
+      # does, and deliberately still reports healthy when myUplink is merely
+      # down, so somebody else's outage cannot flap this container.
       test: ["CMD", "python", "-c",
-             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/temperature', timeout=5)"]
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/healthz', timeout=5)"]
       interval: 15s
       timeout: 8s
       retries: 4

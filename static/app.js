@@ -16,23 +16,55 @@ async function fetchTemp() {
     const res = await fetch("/api/temperature");
     data = await res.json();
   } catch {
+    // Could not reach our own server — a page-side blip, not a statement about
+    // the water. Keep the last frame rather than inventing a new one.
     return;
   }
-  if (data.temp === null || data.temp === undefined) return;
 
-  const category = categoryFor(data.temp);
-  if (category !== currentCategory) {
-    currentCategory = category;
-    card.src = `/static/${category}.png?v=${window.ASSET_V}`;
-    for (const c of ["cold", "medium", "hot"]) {
-      document.body.classList.toggle(c, c === category);
+  // A reading we cannot stand behind must stop *looking* like an answer. The
+  // card is the whole interface — on 2026-08-22 the poller wedged and it showed
+  // a confident "hot" for 31 hours while the water was actually 29°, because the
+  // only hint was a timestamp hidden behind a 600ms press-and-hold.
+  //
+  // "No reading at all" counts, and is handled BEFORE anything else: the page
+  // ships as `body class="hot stale"`, so a restart before the first poll — or
+  // one during a myUplink outage, which is when the watchdog restarts us — shows
+  // a dead grey card instead of a confident red one. Never return early past
+  // this: that is precisely how a blank state renders as "hot".
+  const known = data.temp !== null && data.temp !== undefined;
+  const stale = !known || !!data.stale;
+  document.body.classList.toggle("stale", stale);
+  badge.classList.toggle("pinned", stale);
+
+  if (known) {
+    const category = categoryFor(data.temp);
+    if (category !== currentCategory) {
+      currentCategory = category;
+      card.src = `/static/${category}.png?v=${window.ASSET_V}`;
+      for (const c of ["cold", "medium", "hot"]) {
+        document.body.classList.toggle(c, c === category);
+      }
     }
   }
 
+  // A day-old reading gets its weekday, so "senast 14:26" cannot be misread as
+  // this afternoon — which is exactly how the outage stayed invisible.
+  const olderThanADay = (data.age_seconds ?? 0) >= 86400;
   const updated = data.updated_at
-    ? new Date(data.updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    ? new Date(data.updated_at).toLocaleString("sv-SE", {
+        hour: "2-digit",
+        minute: "2-digit",
+        ...(olderThanADay ? { weekday: "short" } : {}),
+      })
     : "";
-  badge.textContent = `${data.temp.toFixed(1)}${data.unit} · uppdaterad ${updated}`;
+
+  if (!known) {
+    badge.textContent = "Ingen kontakt";
+  } else if (stale) {
+    badge.textContent = `Ingen kontakt · senast ${updated}`;
+  } else {
+    badge.textContent = `${data.temp.toFixed(1)}${data.unit} · uppdaterad ${updated}`;
+  }
 }
 
 fetchTemp();

@@ -53,6 +53,20 @@ body.hot    { background-color: #e6392c; }
   transition: opacity .2s ease;
 }
 
-.badge.visible {
+.badge.visible,
+.badge.pinned {
   opacity: 1;
+}
+
+/* Stale: the reading is too old to stand behind, so stop presenting it as the
+   answer. Grey and dim rather than hidden — the card is the whole page, and a
+   blank screen says "broken app" where this says "broken data". The background
+   colour goes neutral for the same reason: a red screen is a claim. */
+body.stale {
+  background-color: #4a5568;
+}
+
+body.stale #card {
+  filter: grayscale(1) drop-shadow(0 8px 30px rgba(0, 0, 0, .35));
+  opacity: .45;
 }

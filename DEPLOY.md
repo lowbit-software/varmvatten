@@ -122,6 +122,24 @@ holds `CLOUDFLARE_TUNNEL_TOKEN` plus `APP_UID`/`APP_GID`.
 
 ## Failure modes worth knowing
 
+- **The page shows a temperature that is hours old** — the poll thread stopped.
+  Ask the app rather than guessing: `curl -s localhost:5000/healthz` reports
+  `age_seconds` (how old the reading is) and `seconds_since_poll_attempt` (how
+  long since the thread last tried). Those answer different questions and the
+  difference is the diagnosis: a large `age_seconds` with a small
+  `seconds_since_poll_attempt` means myUplink is failing and we are retrying —
+  nothing to fix here. Both large means the thread is wedged, and the watchdog
+  should already have exited the process for `restart: unless-stopped` to
+  replace it. The page greys the card out and says "Ingen kontakt" whenever the
+  reading is stale, so this should be visible before anyone goes looking.
+
+  This is what bit on 2026-08-22: `urlopen` had no timeout, a myUplink
+  connection went quiet without a FIN, and the poll thread blocked in one read
+  for 31 hours. The page kept serving a confident 58° while the water was 29°,
+  and every health signal stayed green because they all asked Flask's main
+  thread, which was fine.
+
+
 - **`cannot pull … is the package published and public`** — step 2 was skipped,
   or the PAT expired.
 - **`no previous digest to roll back to`** — only possible on the very first
