@@ -20,6 +20,15 @@ async function fetchTemp() {
   }
   if (data.temp === null || data.temp === undefined) return;
 
+  // A stale reading must stop *looking* like an answer. The card is the whole
+  // interface — on 2026-08-22 the poller wedged and it showed a confident "hot"
+  // for 31 hours while the water was actually 29°, because the only hint that
+  // anything was wrong was a timestamp hidden behind a 600ms press-and-hold.
+  // So staleness greys the card out and forces the badge into view: unmissable
+  // at a glance, and it says nothing about the temperature it no longer knows.
+  document.body.classList.toggle("stale", !!data.stale);
+  badge.classList.toggle("pinned", !!data.stale);
+
   const category = categoryFor(data.temp);
   if (category !== currentCategory) {
     currentCategory = category;
@@ -30,9 +39,20 @@ async function fetchTemp() {
   }
 
   const updated = data.updated_at
-    ? new Date(data.updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    ? new Date(data.updated_at).toLocaleString("sv-SE", {
+        hour: "2-digit",
+        minute: "2-digit",
+        ...(agoDays(data) >= 1 ? { weekday: "short" } : {}),
+      })
     : "";
-  badge.textContent = `${data.temp.toFixed(1)}${data.unit} · uppdaterad ${updated}`;
+  badge.textContent = data.stale
+    ? `Ingen kontakt · senast ${updated}`
+    : `${data.temp.toFixed(1)}${data.unit} · uppdaterad ${updated}`;
+}
+
+/** Whole days since the reading, so a day-old one shows its weekday too. */
+function agoDays(data) {
+  return typeof data.age_seconds === "number" ? data.age_seconds / 86400 : 0;
 }
 
 fetchTemp();

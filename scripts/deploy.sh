@@ -21,7 +21,7 @@ IMAGE="${DEPLOY_IMAGE:-ghcr.io/lowbit-software/varmvatten}"
 CHANNEL="${DEPLOY_CHANNEL:-stable}"
 STATE_FILE="$REPO_DIR/.deploy.env"
 QUARANTINE_FILE="$REPO_DIR/.deploy.failed"
-HEALTH_URL="http://127.0.0.1:5000/api/temperature"
+HEALTH_URL="http://127.0.0.1:5000/healthz"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-90}"
 
 log() { printf '%s  %s\n' "$(date -Is)" "$*"; }
