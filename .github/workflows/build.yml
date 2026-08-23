@@ -37,9 +37,23 @@ jobs:
           docker run --rm --entrypoint python varmvatten:ci -c "
           import app
           routes = {r.rule for r in app.app.url_map.iter_rules()}
-          assert '/api/temperature' in routes, routes
+          for required in ('/api/temperature', '/healthz'):
+              assert required in routes, (required, routes)
           print('ok:', sorted(routes))
           "
+
+      # Both suites guard the 2026-08-22 outage, from its two ends: the poller
+      # hanging on a silent upstream, and the page presenting a reading it can no
+      # longer stand behind. Timeout-bounded on purpose — the pre-fix failure mode
+      # is a hang, not an error, so a regression here would otherwise sit until
+      # the job's own limit rather than failing fast.
+      - name: Poller — survives an upstream that never answers
+        timeout-minutes: 2
+        run: docker run --rm --entrypoint python varmvatten:ci tests/poller.py
+
+      - name: Page — never presents a reading it cannot stand behind
+        timeout-minutes: 2
+        run: node tests/staleness_ui.mjs
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'

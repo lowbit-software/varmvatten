@@ -37,6 +37,7 @@ threshold.
 ```
 varmvatten/
 ├── app.py               # Flask app: poller + watchdog + /api/temperature + /healthz + page
+├── tests/               # `python tests/poller.py`, `node tests/staleness_ui.mjs` — both in CI
 ├── nibe_client.py       # myUplink OAuth token handling + hot-water lookup
 ├── requirements.txt
 ├── Dockerfile
