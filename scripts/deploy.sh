@@ -21,8 +21,8 @@ IMAGE="${DEPLOY_IMAGE:-ghcr.io/lowbit-software/varmvatten}"
 CHANNEL="${DEPLOY_CHANNEL:-stable}"
 STATE_FILE="$REPO_DIR/.deploy.env"
 QUARANTINE_FILE="$REPO_DIR/.deploy.failed"
-HEALTH_URL="http://127.0.0.1:5000/healthz"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-90}"
+# HEALTH_URL is computed once .env has been read -- it has to follow APP_BIND.
 
 log() { printf '%s  %s\n' "$(date -Is)" "$*"; }
 fail() { log "ERROR: $*" >&2; exit 1; }
@@ -69,6 +69,20 @@ bring_up() {
 }
 
 [ -f "$REPO_DIR/.env" ] || fail ".env missing — it holds CLOUDFLARE_TUNNEL_TOKEN and APP_UID/APP_GID"
+
+# The host-side health check has to hit the address the port is actually
+# published on, and APP_BIND decides that. Hardcoding loopback here would fail
+# a perfectly healthy deploy the moment someone binds to one interface, and
+# because bring_up() treats a failed check as a bad image, the punishment for
+# that is an automatic rollback plus a quarantined digest.
+#
+# 0.0.0.0 includes loopback, so it maps back to 127.0.0.1 rather than being
+# used as a destination address.
+app_bind="$(sed -n 's/^[[:space:]]*APP_BIND=//p' "$REPO_DIR/.env" | tail -1 | tr -d '"'"'"'\r' | xargs || true)"
+health_host="${app_bind:-127.0.0.1}"
+[ "$health_host" = "0.0.0.0" ] && health_host="127.0.0.1"
+HEALTH_URL="http://${health_host}:5000/healthz"
+log "health check target: $HEALTH_URL"
 
 log "checking $IMAGE:$CHANNEL"
 if ! docker pull -q "$IMAGE:$CHANNEL" >/dev/null 2>&1; then

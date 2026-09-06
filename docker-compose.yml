@@ -11,7 +11,17 @@ services:
     volumes:
       - ~/.config/myuplink:/config
     ports:
-      - "127.0.0.1:5000:5000"
+      # Loopback by default: the Cloudflare tunnel is the intended way in, and
+      # a host that only ever serves the tunnel should not also be listening on
+      # its LAN. Hosts that do want a LAN listener set APP_BIND=0.0.0.0 in
+      # .env -- exposure is a per-host decision, recorded next to the other
+      # host-specific settings, rather than a property of the repo.
+      #
+      # A single interface address works here too, but it takes loopback away
+      # with it, and things here expect loopback: deploy.sh's host-side health
+      # check follows APP_BIND and keeps up, the curl examples in README.md do
+      # not.
+      - "${APP_BIND:-127.0.0.1}:5000:5000"
     restart: unless-stopped
     healthcheck:
       # /healthz, not /api/temperature. The latter answered 200 for all 31 hours
