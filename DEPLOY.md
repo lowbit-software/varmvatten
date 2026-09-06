@@ -96,6 +96,7 @@ yourself. Every promote then waits for you to press Approve in the Actions UI.
 | Deploy right now, don't wait 5 min | `systemctl --user start varmvatten-deploy.service` |
 | What is actually running? | `cat ~/varmvatten/.deploy.env` |
 | Deploy history | `journalctl --user -u varmvatten-deploy -n 100` |
+| Change compose/env, not the image | `cd ~/varmvatten && git pull && docker compose --env-file .env --env-file .deploy.env up -d` |
 | Local development | `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build` |
 
 Available `sha-*` tags are listed on the package page, newest first.

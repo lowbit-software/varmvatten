@@ -148,8 +148,14 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 On the server, `docker compose up -d` instead pulls the image promoted to
 `ghcr.io/lowbit-software/varmvatten:stable` — see [DEPLOY.md](DEPLOY.md).
 
-- `webapp` is published only on `127.0.0.1:5000` (loopback) for local
+- `webapp` is published on `127.0.0.1:5000` (loopback) by default, for local
   testing; the public entry point is the tunnel.
+- To also serve clients on the LAN — a device on the same network would
+  otherwise have to go out through the tunnel and back — set `APP_BIND=0.0.0.0`
+  in `.env` and re-run `docker compose up -d`. A single interface address
+  works too, but it unbinds loopback: `deploy.sh` follows `APP_BIND` and
+  health-checks the right address, while the `curl http://127.0.0.1:5000/...`
+  examples below assume loopback and would need the same address substituted.
 - `cloudflared` makes outbound-only connections to Cloudflare's edge.
 
 ## Verify
