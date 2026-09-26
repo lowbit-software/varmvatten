@@ -16,9 +16,16 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    # `allow` is what scopes this, NOT `groups`. Groups only decide how updates
+    # are batched into PRs — an ungrouped dependency still gets its own PR. The
+    # one that matters here is the app image: `${APP_IMAGE:-…:stable}` carries
+    # `:stable`, a moving tag owned by the promote workflow, and Dependabot
+    # raising PRs against it would fight the deployment model outright.
+    allow:
+      - dependency-name: "cloudflare/cloudflared"
     groups:
-      containers:
+      cloudflared:
         patterns:
-          - "*"
+          - "cloudflare/cloudflared"
     commit-message:
       prefix: "chore"
