@@ -1,0 +1,24 @@
+# Keeps the pinned cloudflared connector moving without anyone having to
+# remember it. A new Cloudflare release becomes a pull request, which is work
+# that already gets done here — unlike a calendar reminder or a note in a
+# runbook, both of which were the previous plan and both of which fail quietly.
+#
+# Monthly rather than on every release: Cloudflare ships often, and a stream of
+# PRs across three repositories is how a useful signal becomes noise that gets
+# filtered. Grouped for the same reason.
+#
+# This does NOT cover the Dockerfile base images (nginx/node/python) — that is
+# `package-ecosystem: docker`, a separate entry. Deliberately left out for now
+# so this change is one thing; add it when the PR volume here proves tolerable.
+version: 2
+updates:
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      containers:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore"

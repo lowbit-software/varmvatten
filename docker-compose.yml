@@ -37,7 +37,13 @@ services:
       start_period: 20s
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    # Pinned, not `:latest`. `:latest` was worse than it looked here: nothing
+    # re-pulls it (deploy.sh pulls only the app image), so all three projects
+    # sat on the June build for three months while the tag implied currency —
+    # neither reproducible nor current. An explicit version makes the staleness
+    # visible in the file, and Dependabot turns the bump into a PR rather than
+    # something somebody has to remember. See .github/dependabot.yml.
+    image: cloudflare/cloudflared:2026.9.3
     command: tunnel --no-autoupdate run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
