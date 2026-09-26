@@ -1,0 +1,31 @@
+# Keeps the pinned cloudflared connector moving without anyone having to
+# remember it. A new Cloudflare release becomes a pull request, which is work
+# that already gets done here — unlike a calendar reminder or a note in a
+# runbook, both of which were the previous plan and both of which fail quietly.
+#
+# Monthly rather than on every release: Cloudflare ships often, and a stream of
+# PRs across three repositories is how a useful signal becomes noise that gets
+# filtered. Grouped for the same reason.
+#
+# This does NOT cover the Dockerfile base image (python:3.12-slim) — that is
+# `package-ecosystem: docker`, a separate entry. Deliberately left out for now
+# so this change is one thing; add it when the PR volume here proves tolerable.
+version: 2
+updates:
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    # `allow` is what scopes this, NOT `groups`. Groups only decide how updates
+    # are batched into PRs — an ungrouped dependency still gets its own PR. The
+    # one that matters here is the app image: `${APP_IMAGE:-…:stable}` carries
+    # `:stable`, a moving tag owned by the promote workflow, and Dependabot
+    # raising PRs against it would fight the deployment model outright.
+    allow:
+      - dependency-name: "cloudflare/cloudflared"
+    groups:
+      cloudflared:
+        patterns:
+          - "cloudflare/cloudflared"
+    commit-message:
+      prefix: "chore"
