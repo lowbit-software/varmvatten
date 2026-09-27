@@ -121,6 +121,31 @@ forever. The quarantine clears as soon as a different digest is promoted.
 `.env` is never touched by any of this — it stays on the box, gitignored, and
 holds `CLOUDFLARE_TUNNEL_TOKEN` plus `APP_UID`/`APP_GID`.
 
+## The tunnel-health alert will fire when you update cloudflared
+
+Cloudflare emails a tunnel-health alert when the connector disconnects, and it
+is **more sensitive than you might expect**: a clean 16-second restart during a
+planned update triggered it, with four edge connections re-registering
+immediately afterwards. That is the alert working, not misfiring.
+
+Worth knowing precisely when it happens, so an expected email never has to be
+investigated and an unexpected one always does:
+
+| Action | Tunnel restarts? | Alert? |
+|---|---|---|
+| App deploy (promote + `deploy.sh`) | No — compose reports cloudflared `Running`, not `Recreated` | No |
+| Deploy timer tick, nothing to do | No | No |
+| Merging a Dependabot cloudflared bump, then `docker compose up -d` | **Yes** | **Yes** |
+| Anything actually broken | Yes | Yes |
+
+So the only routine cause is a connector update — roughly monthly, and always
+within a minute of you deliberately merging and applying it. An alert arriving
+at any other time is real.
+
+Verified rather than assumed: a no-op `docker compose up -d` leaves the
+connector's start time unchanged, and the app deploys in this project's history
+all report cloudflared as `Running`.
+
 ## Failure modes worth knowing
 
 - **The page shows a temperature that is hours old** — the poll thread stopped.
