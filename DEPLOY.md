@@ -121,12 +121,16 @@ forever. The quarantine clears as soon as a different digest is promoted.
 `.env` is never touched by any of this — it stays on the box, gitignored, and
 holds `CLOUDFLARE_TUNNEL_TOKEN` plus `APP_UID`/`APP_GID`.
 
-## The tunnel-health alert will fire when you update cloudflared
+## Expect a tunnel-health alert when you update cloudflared
 
 Cloudflare emails a tunnel-health alert when the connector disconnects, and it
-is **more sensitive than you might expect**: a clean 16-second restart during a
-planned update triggered it, with four edge connections re-registering
+proved **more sensitive than expected**: on 2026-09-27 a clean 16-second restart
+during a planned update triggered one, with four edge connections re-registering
 immediately afterwards. That is the alert working, not misfiring.
+
+Sensitivity is Cloudflare's to change and yours to configure, so treat the table
+below as what was observed rather than a guarantee — but the shape holds, since
+it follows from which containers compose actually restarts.
 
 Worth knowing precisely when it happens, so an expected email never has to be
 investigated and an unexpected one always does:
@@ -135,16 +139,29 @@ investigated and an unexpected one always does:
 |---|---|---|
 | App deploy (promote + `deploy.sh`) | No — compose reports cloudflared `Running`, not `Recreated` | No |
 | Deploy timer tick, nothing to do | No | No |
-| Merging a Dependabot cloudflared bump, then `docker compose up -d` | **Yes** | **Yes** |
+| Merging a Dependabot cloudflared bump, then applying it (below) | **Yes** | **Yes** |
 | Anything actually broken | Yes | Yes |
 
 So the only routine cause is a connector update — roughly monthly, and always
 within a minute of you deliberately merging and applying it. An alert arriving
 at any other time is real.
 
-Verified rather than assumed: a no-op `docker compose up -d` leaves the
-connector's start time unchanged, and the app deploys in this project's history
-all report cloudflared as `Running`.
+Applying a connector bump is a compose change, not a promote — the app image is
+untouched. **Both env files, every time:**
+
+```bash
+git pull && docker compose --env-file .env --env-file .deploy.env up -d
+```
+
+`.deploy.env` is not optional here and is the easiest thing to leave off.
+`docker-compose.yml` reads `${APP_IMAGE:-…:stable}`, so without that file the
+pinned digest silently becomes the moving `:stable` tag — which is precisely the
+drift `deploy.sh` pins a digest to prevent. Same rule as the "Change compose/env,
+not the image" row above.
+
+Verified rather than assumed: a no-op `up -d` leaves the connector's start time
+unchanged, and the app deploys in this project's history all report cloudflared
+as `Running`.
 
 ## Failure modes worth knowing
 
