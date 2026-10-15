@@ -148,17 +148,21 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 On the server, `docker compose up -d` instead pulls the image promoted to
 `ghcr.io/lowbit-software/varmvatten:stable` — see [DEPLOY.md](DEPLOY.md).
 
-- `webapp` is published on `127.0.0.1:5000` (loopback) by default, for local
-  testing; the public entry point is the tunnel.
+- `webapp` is not published on the host by default; the public entry point is
+  the tunnel, which reaches it over the compose network as `webapp:5000`.
 - To also serve clients on the LAN — a device on the same network would
-  otherwise have to go out through the tunnel and back — set `APP_BIND=0.0.0.0`
-  in `.env` and re-run `docker compose up -d`. A single interface address
-  works too, but it unbinds loopback: `deploy.sh` follows `APP_BIND` and
-  health-checks the right address, while the `curl http://127.0.0.1:5000/...`
-  examples below assume loopback and would need the same address substituted.
+  otherwise have to go out through the tunnel and back — add
+  `COMPOSE_FILE=docker-compose.yml:docker-compose.lan.yml` to `.env` and re-run
+  `docker compose up -d`. That publishes port 5000 on all interfaces (or on
+  `APP_BIND`). The production box has it on. A single interface address
+  unbinds loopback, and the `curl http://127.0.0.1:5000/...` examples below
+  assume loopback.
 - `cloudflared` makes outbound-only connections to Cloudflare's edge.
 
 ## Verify
+
+The `127.0.0.1:5000` lines need the LAN overlay (above); without it, use
+`docker compose exec webapp python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:5000/healthz').read().decode())"`.
 
 ```bash
 docker compose logs -f webapp          # expect "hot water temp: NN.N°C" within ~60 s

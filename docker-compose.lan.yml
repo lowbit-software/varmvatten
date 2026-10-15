@@ -1,0 +1,16 @@
+# Opt-in LAN listener for this host. Nothing in the repo turns it on; a host
+# that wants it adds this line to its .env (deploy.sh and every documented
+# compose command read .env, so they all pick it up):
+#
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.lan.yml
+#
+# APP_BIND picks the address (default all interfaces, which includes
+# loopback). A single interface address works too but unbinds loopback, so
+# `curl 127.0.0.1:5000` from the host stops answering. deploy.sh does not
+# care either way: it checks through the compose network, not this port.
+#
+# 5000 is recorded in the port registry in ~/deploy-kit/README.md.
+services:
+  webapp:
+    ports:
+      - "${APP_BIND:-0.0.0.0}:5000:5000"

@@ -109,7 +109,9 @@ can never silently pick up a different image than the one that was health-checke
 
 After starting a new image it waits for two independent signals: the compose
 healthcheck (the app answers inside the container) and a request to
-`127.0.0.1:5000` from the host (the published port actually works). If either
+`http://webapp:5000/healthz` from a throwaway container on cloudflared's
+network, the path the tunnel takes. It does not use the LAN port, so it works
+whether or not this host publishes one. If either
 fails within 90s it rewrites `.deploy.env` to the previous digest, brings that
 back up, and exits non-zero so `systemctl --user status varmvatten-deploy`
 shows red.
@@ -166,7 +168,8 @@ as `Running`.
 ## Failure modes worth knowing
 
 - **The page shows a temperature that is hours old** — the poll thread stopped.
-  Ask the app rather than guessing: `curl -s localhost:5000/healthz` reports
+  Ask the app rather than guessing: `curl -s localhost:5000/healthz` (LAN overlay on, as on this
+  box; otherwise `docker compose exec webapp python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:5000/healthz').read().decode())"`) reports
   `age_seconds` (how old the reading is) and `seconds_since_poll_attempt` (how
   long since the thread last tried). Those answer different questions and the
   difference is the diagnosis: a large `age_seconds` with a small

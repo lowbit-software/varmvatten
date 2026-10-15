@@ -22,7 +22,12 @@ CHANNEL="${DEPLOY_CHANNEL:-stable}"
 STATE_FILE="$REPO_DIR/.deploy.env"
 QUARANTINE_FILE="$REPO_DIR/.deploy.failed"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-90}"
-# HEALTH_URL is computed once .env has been read -- it has to follow APP_BIND.
+# Checked the way the tunnel reaches the app, not through a host port: see probe().
+HEALTH_URL="http://webapp:5000/healthz"
+# Pinned like cloudflared. Anything with a wget would do; pulled up front so a
+# registry hiccup fails the run before deploying rather than failing the probe
+# and quarantining a good image.
+PROBE_IMAGE="busybox:1.37@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
 
 log() { printf '%s  %s\n' "$(date -Is)" "$*"; }
 fail() { log "ERROR: $*" >&2; exit 1; }
@@ -53,14 +58,28 @@ write_state() {
     "$1" > "$STATE_FILE"
 }
 
+# Ask for /healthz the way cloudflared does: by service name, from a throwaway
+# container on cloudflared's network. The in-container healthcheck only proves
+# the app answers on its own loopback; this proves it listens where the tunnel
+# connects. An app bound to 127.0.0.1 inside its container passes the first and
+# fails this.
+probe() {
+  local cf net
+  cf="$(compose ps -q cloudflared 2>/dev/null || true)"
+  [ -n "$cf" ] || return 1
+  net="$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{println $k}}{{end}}' "$cf" 2>/dev/null | head -1 || true)"
+  [ -n "$net" ] || return 1
+  docker run --rm --network "$net" "$PROBE_IMAGE" wget -q -O /dev/null -T 5 "$HEALTH_URL" >/dev/null 2>&1
+}
+
 # Bring the stack up on whatever .deploy.env currently pins, and confirm it
-# serves traffic on the published port (which the in-container healthcheck
-# alone would not prove).
+# serves traffic on the tunnel's path (which the in-container healthcheck alone
+# would not prove).
 bring_up() {
   compose up -d --wait --wait-timeout "$HEALTH_TIMEOUT" || return 1
   local deadline=$(( SECONDS + HEALTH_TIMEOUT ))
   while (( SECONDS < deadline )); do
-    if curl -fsS -o /dev/null --max-time 5 "$HEALTH_URL"; then
+    if probe; then
       return 0
     fi
     sleep 3
@@ -70,19 +89,11 @@ bring_up() {
 
 [ -f "$REPO_DIR/.env" ] || fail ".env missing — it holds CLOUDFLARE_TUNNEL_TOKEN and APP_UID/APP_GID"
 
-# The host-side health check has to hit the address the port is actually
-# published on, and APP_BIND decides that. Hardcoding loopback here would fail
-# a perfectly healthy deploy the moment someone binds to one interface, and
-# because bring_up() treats a failed check as a bad image, the punishment for
-# that is an automatic rollback plus a quarantined digest.
-#
-# 0.0.0.0 includes loopback, so it maps back to 127.0.0.1 rather than being
-# used as a destination address.
-app_bind="$(sed -n 's/^[[:space:]]*APP_BIND=//p' "$REPO_DIR/.env" | tail -1 | tr -d '"'"'"'\r' | xargs || true)"
-health_host="${app_bind:-127.0.0.1}"
-[ "$health_host" = "0.0.0.0" ] && health_host="127.0.0.1"
-HEALTH_URL="http://${health_host}:5000/healthz"
-log "health check target: $HEALTH_URL"
+log "health check target: $HEALTH_URL, from cloudflared's network"
+
+if ! docker image inspect "$PROBE_IMAGE" >/dev/null 2>&1 && ! docker pull -q "$PROBE_IMAGE" >/dev/null 2>&1; then
+  fail "cannot pull the health probe image $PROBE_IMAGE — nothing was deployed; retrying next tick"
+fi
 
 log "checking $IMAGE:$CHANNEL"
 if ! docker pull -q "$IMAGE:$CHANNEL" >/dev/null 2>&1; then
